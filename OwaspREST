@@ -1,0 +1,120 @@
+1 HTTPS
+I servizi REST devono essere esposti in HTTPS al fine di proteggere le credenziali di autenticazione (password, API Key, Web Token Json, etc. ) in transito e garantire l'integrità dei dati trasmessi.
+Bisogna considerare l'uso di certificati client-side per fornire una protezione aggiuntiva a quei servizi Web altamente privilegiati.
+Per maggiori informazioni sulla protezione ottenuta con TLS è possibile far riferimento a https://www.owasp.org/index.php/Transport_Layer_Protection_Cheat_Sheet.
+
+2 ACCESS CONTROL
+Per i servizi REST non pubblici è necessario eseguire controlli sull'accesso agli endpoint. Genericamente ciò è implementato tramite l'autenticazione, autorizzazione dell'utente e tramite la gestione delle sessioni.
+In dettaglio:
+
+        il controllo degli accessi deve esser applicato localmente dagli endpoint REST;
+        l'autenticazione deve essere centralizzata in un IdP(provider di identità) che emette dei token di accesso. 
+
+
+3 JWT
+Il formato dei token da utilizzare per il controllo degli accessi, deve essere JWT (JSON Web Token) ossia uno standard per la creazione di token che asseriscono un certo numero di attestazioni.  Per proteggere l'integrità dei JWT è possibile utilizzare firme o MAC (Message Authentication Code) ossia codici di autenticazione del messaggio; in generale è preferibile utilizzare le firme che garantiscono una migliore protezione.
+
+Un JWT è composto da tre parti:
+
+    header: identifica l'algoritmo utilizzato per la generazione della firma;
+    payload: contiene le informazioni da trasmettere;
+    firma: calcolata in base64url codificando l'header e il payload e concatenandoli con un punto come separatore.
+
+Secondo RFC7519 è necessario non utilizzare JWT non sicuri (e.g. {"alg": "none"}) ossia trasmetterli con la codifica base64url.
+Ad esempio il JWT {"iss":"joe",
+      "exp":1300819380,
+      "http://example.com/is_root":true}
+ diviene
+ eyJhbGciOiJub25lIn0.eyJpc3MiOiJqb2UiLA0KICJleHAiOjEzMDA4MTkzODAsDQogImh0dHA6Ly9leGFtcGxlLmNvbS9pc19yb290Ijp0cnVlfQ
+
+E' necessario inoltre precisare che l'algoritmo di firma utilizzato per verificare l'integrità del token, non deve considerare le informazioni presenti nell'header del JWT poichè esse potrebbero essere manipolate dall'attaccante. (https://www.chosenplaintext.ca/2015/03/31/jwt-algorithm-confusion.html)
+
+
+4 API KEYS
+Al fine di evitare di sovraccaricare i servizi REST (attacchi DoS) è possibile utilizzare delle API Key ossia chiavi di autenticazione che permettono di identificare l'utente che esegue la specifica richiesta.
+E' necessario seguire la seguente logica:
+
+    richiedere una API Key per ogni richiesta fatta all'endpoint;
+    restituire una risposta HTTP del tipo 429 "Too Many Requests" se arrivano richieste troppo rapidamente;
+    revocare la API Key se il client viola il periodo di validità della chiave stessa. 
+
+Inoltre bisogna precisare che non bisogna far affidamento esclusivamente alle API Key per proteggere risorse sensibili, critiche, etc.
+
+
+5 Restringere i metodi HTTP
+Un'altra operazione da eseguire è la creazione di una whitelist per definire quali metodi HTTP sono consentiti (GET, POST, PUT, etc.) e quindi rifiutare le richieste fatte con metodi che non corrispondono a quelli definiti nella whitelis; la risposta è del tipo 405 "Method not allowed". La richiesta inoltre deve essere eseguita solo da chi è autorizzato ad utilizzare quel metodo HTTP sulla risorsa.
+
+6 Validazione dell'input
+Per rendere sicuro un servizio REST è necessario applicare regole di validazione dell'input, ad esempio:
+
+    non fidarsi dei parametri/oggetti in input;
+    convalidare la lunghezza, il formato e il tipo dell'input;
+    eseguire la convalida utilizzando tipi di dati come numeri, valori booleani, date, ore fissati nei parametri API;
+    vincolare le stringhe in input mediante delle espressioni regolari;
+    rifiutare input inattesi;
+    utilizzare librerie o strutture di convalida speicifiche del linguaggio utilizzo;
+    definire un limite per la dimensione della richiesta e rifiutare le richieste che superano tramite limite con una risposta 413 "Request Entity Too Large";
+    se si utilizzano dei parse per analizzare i messaggi in arrivo, assicurarsi che sia sicuro (ad esempio se si usa un parser XML, assicurarsi che non sia vulnerabile a XXE).
+
+Per altre regole far riferimento a https://www.owasp.org/index.php/Input_Validation_Cheat_Sheet
+
+
+7 Validazione del Content-Type
+Per evitare iniezione/esecuzione di codice è necessario che il Content-Type della richiesta REST o del body della risposta corrispondano al Content-Type specificato nell'intestazione.
+Per raggiungere tale scopo è fondamentale:
+
+    documentare i Content-Type supportati dall'API;
+    convalidare i Content-Type della richiesta REST;
+    rifiutare le richieste con Content-Type inattesi mediante una risposta con stato 406 "Inacceptable" o 415 "Unsupported Media Type";
+    inviare risposte con Content-Type corretto e sicuro.
+
+I servizi rest che includono script (e.g. JavaScript) nelle risposte, devono difendersi da eventuali attacchi di Header Injection; per fare ciò è necessario assicurarsi che il contenuto del body della risposta abbia lo stesso Content-Type specificato nel header.
+
+
+8 Endpoint di gestione
+Per rendere sicuri i servizi REST è necessario porre attenzione anche sulla sicurezza degli endpoint di gestione. E' necessario:
+
+        evitare di esporre gli endpoint di gestione;
+        nel caso in cui gli endpoint di gestione debbano essere accessibili da Internet, si consiglia di utilizzare un meccanismo di autenticazione forte (autenticazione multifattore);
+        esporre gli endpoint di gestione su diverse porte HTTP, host o su una subnet limitata;
+        limitare l'accesso agli endpoint di gestione mediante regole sul firewall o ACL specifiche. 
+
+
+9 Error Handling
+L'attaccante può sfruttare una cattiva gestione dell'error handling al fine di ricavare informazioni preziose sulle cause che portano alla generazione di errori durante l'esecuzione di comandi e istruzioni contenuti in funzioni o precedure.
+Al fine di evitare ciò è possibile:
+
+    generare risposte di errori generiche;
+    evitare di inserire nelle risposte dei dettagli tecnici (ad esempio il linguaggio o il framework utilizzato).
+
+
+10 Audit log
+La gestione dei log indica l'insieme di attività legate alla raccolta e all'analisi dei dati, memorizzati in file di log e rappresenta una registrazione completa degli eventi che accadono in qualunque contesto di sicurezza informatica.
+Un corretto audit log prevede:
+
+    la generazione degli audit log prima e dopo un evento di sicurezza;
+    il tracciamento degli errori nella validazione dei token;
+    la sanitizzazione dei dati di log al fine di evitare attacchi di log injection. 
+
+
+11 Security Header
+Per esser sicuri che il contenuto di una data risorsa sia interpretato correttamente dal browser, è necessario inserire nell'header il Content-Type e il Charset che si aspetta.
+I seguenti header sono necessari al fine di rendere il servizio sicuro:
+
+    X-Content-Type-Options: nosniff;
+    X-Frame-Options: deny.
+
+Inoltre è necessario:
+
+    disabilitare gli header CORS se le chiamate tra domini non sono supportate;
+    specificare in maniera precisa le origini delle chiamate tra domini. 
+
+
+
+12 Informazioni sensibili nelle richieste HTTP
+E' fondamentale evitare di inserire credenziali, password, token o API Key nelle URL (e.g. https://example.com/controller/<id>/action?apiKey=a53f435643de32 (API Key in URL)), in quanto essi possono essere salvati nei log del server WEB.
+Nello specifico:
+
+    per le richieste in POST/PUT i dati sensibili devono esser trasferiti nell'header o nel corpo della richiesta;
+    per le richieste in GET i dati sensibili devo essere trasferiti nell'header. 
+
