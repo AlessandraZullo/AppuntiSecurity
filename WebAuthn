@@ -1,0 +1,46 @@
+Con WebAuthn si indicano le Web Authentication API ossia un'estensione delle Credential Management API.
+Le WebAuthn usano i concetti di crittografia asimmetrica (a chiave pubblica) e la firma digitale che rimpiazzano l'utilizzo di password o SMS per la registrazione, l'autenticazione e i meccanismi di 2FA.
+Grazie all'utilizzo di WebAuthn viene eliminata la possibilità di attacchi di phishing, agli SMS o eventuali data breach. 
+
+Si utilizzano due metodi: 
+- navigator.credential.create() che permette la registrazione di un nuovo utente, la creazione di una nuova coppia di chiavi asimmetriche da associare ad un account esistente;
+- navigator.credential.get() che usa una coppia di chiavi già esistenti per autenticare un utente ad uno specifico servizio o come 2FA. 
+
+Tali funzionalità sono disponibili solo se si è in un "contesto sicuro" (Secure Context) ossia una finestra in cui si ha confidenzialità grazie all'utilizzo di HTTPS/TLS al fine di evitare attacchi MITM.
+Per controllare se una pagina è in un "contesto sicuro" basta usare:
+ if (window.isSecureContext() )
+
+ Le componenti che intervengono in tale meccanismo sono: 
+ 1) Server detto anche relying party: su cui implementati i meccanismi per la registrazione di nuove credenziali e per l'autenticazione stessa;
+ 2) Authenticator: su cui sono memorizzate e create le credenziali (chiavi). Vedi ad esempio yubico.com
+
+La comunicazione tra le componenti avviene sempre mediante uno UserAgent (solitamente un browser)
+
+ I processi implementati sono: 
+ 1) Registrazione: per la creazione di una nuova credenziale da utilizzare poi per l'autenticazione;
+ 2) Autenticazione: per il check della credenziale che permette l'accesso al servizio. 
+
+Registrazione
+Il processo di Registrazione è attuato dall'autenthicator che crea una nuova coppia di chiavi (cifratura pubblica) usate per firmare la challenge generata dal relying party, la chiave pubblica poi viene inviata al relying party che la memorizza e la usa per verificare l'identità di chi usa quelle credenziali.
+Gli step di tale processo sono: 
+- l'utente (mediante browser) si collega al sito del relying party che gli restituisce una pagina HTML per la registrazione;
+- l'utente cliccando sul pulsante per la registrazione chiede la challenge che il relying party gli restituisce;
+- l'utente invia la challenge e la richiesta di creazione di una nuova credenziale all'authenticator;
+- l'authtenticator usa il primo metodo (navigator.credential.create()) con i dati passati dall'utente e gli restituisce le nuove credenziali con la challenge firmata;
+- il browser invia tali dati (chiave pubblica + challenge firmata) al relying party che li registra e restituisce una risposta di registrazione avvenuta con successo all'utente. 
+
+
+Autenticazione
+Il processo di Autenticazione permette al relying party di inviare la challenge all'authenticator che la firma con la chiave pubblica e gliela restituisce. Con tale scambio di informazioni, il relying party può verificare l'identità dell'utente e farlo autenticare. 
+Precisamente gli step di tale processo sono: 
+- l'utente si collega al sito del relying party che gli restituisce una pagina HTML per eseguire l'accesso; 
+- l'utente chiede la challege al relying party che gliela restituisce;
+- il browser invia la challenge e chiede il secondo metodo all'authenticator;
+- l'authenticator esegue il secondo metodo (navigator.credential.get) e restituisce la challenge firmata al browser;
+- il browser invia tale challenge al relying party che la confronta e permette l'accesso all'utente.
+
+
+Come detto in precedenza, si utilizzano i concetti di crittografia a chiave pubblica e firma digitale. Nello specifico sono utilizzate:
+- la chiave privata ossia un segreto conosciuto solo dall'utente (o anche dall'authenticator);
+- la chiave pubblica che è conosciuta e memorizzata da chiunque (browser, relying party e authenticator); essa è utilizzata per verificare la firma generata mediante l'utilizzo della chiave privata. 
+Nessun'altra chiave o credenziale deve esser utilizzata 
